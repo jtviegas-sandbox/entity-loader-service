@@ -7,11 +7,14 @@
     "type": "git",
     "url": "git+https://github.com/jtviegas/store-loader-service.git"
   },
+  "engines": {
+    "node": ">=4.2.4"
+  },
   "keywords": [
-    "aws"
-    , "DynamoDB"
-    , "S3"
-    , "data store"
+    "aws",
+    "DynamoDB",
+    "S3",
+    "data store"
   ],
   "author": "Joao Tiago Viegas <jtviegas.js@gmail.com>",
   "license": "Unlicense",
