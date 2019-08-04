@@ -1,0 +1,34 @@
+{
+  "name": "store-loader-service",
+  "version": "0.0.1",
+  "description": "...that is it, a service that handles entities persistence from an s3 bucket into DynamoDB",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jtviegas/store-loader-service.git"
+  },
+  "keywords": [
+    "aws"
+    , "DynamoDB"
+    , "S3"
+    , "data store"
+  ],
+  "author": "Joao Tiago Viegas <jtviegas.js@gmail.com>",
+  "license": "Unlicense",
+  "bugs": {
+    "url": "https://github.com/jtviegas/store-loader-service/issues"
+  },
+  "homepage": "https://github.com/jtviegas/store-loader-service#readme",
+  "dependencies": {
+    "@jtviegas/dyndbstore": "^1.0.8",
+    "aws-sdk": "^2.493.0",
+    "papaparse": "^5.0.1",
+    "winston": "^3.2.1"
+  },
+  "devDependencies": {
+    "chai": "^4.2.0",
+    "coveralls": "^3.0.5",
+    "istanbul": "^0.4.5",
+    "mocha": "^6.1.4"
+  }
+}
