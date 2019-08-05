@@ -1,6 +1,6 @@
 {
   "name": "@jtviegas/store-loader-service",
-  "version": "0.0.13",
+  "version": "0.0.14",
   "description": "...that is it, a service that handles entities persistence from an s3 bucket into DynamoDB",
   "main": "index.js",
   "repository": {

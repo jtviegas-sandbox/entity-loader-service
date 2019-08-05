@@ -128,7 +128,7 @@ const storeLoaderService = (config) => {
 
     const toImage = (bucket, name, v) => {
         let image = {};
-        image['name'] = name;
+        image['name'] = name.split("/")[1];
         image['type'] = v['ContentType'];
         image['href'] = config.S3_AMAZON_URL + '/' + bucket + '/' + name;
         return image;
