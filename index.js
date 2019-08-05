@@ -85,13 +85,9 @@ const storeLoaderService = (config) => {
             Bucket: bucket,
             Key:  folder + '/' + config.DATA_DESCRIPTOR_FILE
         };
-        let result = null;
-
         let contents = await s3.getObject(params);
-        result = handleDataDescriptorContents(contents, data);
-
-        logger.debug("[handleDataDescriptorFile|out] => %o", result);
-        return result;
+        handleDataDescriptorContents(contents, data);
+        logger.debug("[handleDataDescriptorFile|out] data => %o", data);
     }
 
     const listImages = (bucket, folder, data) => {
@@ -212,8 +208,10 @@ const storeLoaderService = (config) => {
         logger.info("[load|in] (%s,%s)", stage, bucket);
 
         try{
-            let data = handleDataDescriptorFile(bucket, folder, data);
-            let promise = listImages(bucket, folder, data);
+            let data = {}
+            let promise = handleDataDescriptorFile(bucket, folder, data);
+            promise.catch(e => callback(e));
+            promise = listImages(bucket, folder, data);
             promise.catch(e => callback(e));
             promise = promise.then( d => retrieveImages(bucket, d) );
             promise.catch(e => callback(e));
