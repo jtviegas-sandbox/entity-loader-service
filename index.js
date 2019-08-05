@@ -177,7 +177,7 @@ const storeLoaderService = (config) => {
         logger.debug("[updateStore|in] (%s, %o)", table, data);
         return new Promise(function(resolve, reject) {
 
-            store.putObjs(table, data.data, (e) => {
+            store.putObjs(table, Object.values(data.data), (e) => {
                 if(e){
                     logger.error("[updateStore.store.putObjs] trouble putting entities : %o", e);
                     reject(e);
