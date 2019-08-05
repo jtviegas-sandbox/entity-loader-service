@@ -78,18 +78,39 @@ const storeLoaderService = (config) => {
         return data;
     }
 
-
-    const handleDataDescriptorFile = async (bucket, folder, data) => {
+    const handleDataDescriptorFile = (bucket, folder) => {
         logger.debug("[handleDataDescriptorFile|in] (%s,%s)", bucket, folder);
-        let params = {
-            Bucket: bucket,
-            Key:  folder + '/' + config.DATA_DESCRIPTOR_FILE
-        };
-        let contents = await s3.getObject(params);
-        let result = {}
-        handleDataDescriptorContents(contents, result);
-        logger.debug("[handleDataDescriptorFile|out] data => %o", result);
-        return result;
+
+        return new Promise(function(resolve, reject) {
+            let params = {
+                Bucket: bucket,
+                Key:  folder + '/' + config.DATA_DESCRIPTOR_FILE
+            };
+            s3.getObject(params, (e,o) => {
+                if(e)
+                    reject(e);
+                else {
+                    try{
+                        let data = { data: {}}
+                        let config = { delimiter: ',', newline: '\n', quoteChar: '"', comments: true, skipEmptyLines: true };
+                        let buff = Buffer.from(o.Body);
+                        let parsed = papa.parse(buff.toString(), config);
+                        if(parsed.data && Array.isArray(parsed.data) && 0 < parsed.data.length ){
+                            for(let i = 0; i < parsed.data.length; i++){
+                                let obj = parsed.data[i];
+                                let item = toItem(obj, i);
+                                data.data[item.id] = item;
+                            }
+                        }
+                        resolve(data);
+                    }
+                    catch(e){
+                        reject(e);
+                    }
+                }
+            });
+        });
+        logger.debug("[handleDataDescriptorFile|out]");
     }
 
     const listImages = (bucket, folder, data) => {
@@ -210,10 +231,9 @@ const storeLoaderService = (config) => {
         logger.info("[load|in] (%s,%s)", stage, bucket);
 
         try{
-            let data = {}
-            let promise = handleDataDescriptorFile(bucket, folder, data);
+            let promise = handleDataDescriptorFile(bucket, folder);
             promise.catch(e => callback(e));
-            promise = promise.then( listImages(bucket, folder, data) );
+            promise = promise.then( d => listImages(bucket, folder, d) );
             promise.catch(e => callback(e));
             promise = promise.then( d => retrieveImages(bucket, d) );
             promise.catch(e => callback(e));
