@@ -86,8 +86,10 @@ const storeLoaderService = (config) => {
             Key:  folder + '/' + config.DATA_DESCRIPTOR_FILE
         };
         let contents = await s3.getObject(params);
-        handleDataDescriptorContents(contents, data);
-        logger.debug("[handleDataDescriptorFile|out] data => %o", data);
+        let result = {}
+        handleDataDescriptorContents(contents, result);
+        logger.debug("[handleDataDescriptorFile|out] data => %o", result);
+        return result;
     }
 
     const listImages = (bucket, folder, data) => {
