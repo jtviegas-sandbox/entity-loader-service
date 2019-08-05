@@ -173,39 +173,52 @@ const storeLoaderService = (config) => {
         logger.debug("[retrieveImages|in] => promises.length: %d", promises.length);
     }
 
-    const updateStore = (bucket, stage, data) => {
-        logger.debug("[updateStore|in] (%s, %o)", bucket, data);
+    const updateStore = (table, data) => {
+        logger.debug("[updateStore|in] (%s, %o)", table, data);
         return new Promise(function(resolve, reject) {
 
-            store.findObjIds(config.TABLE, (e,r) => {
+            store.putObjs(table, data.data, (e) => {
                 if(e){
-                    logger.error("[updateStore.store.findObjIds] trouble finding ids : %o", e);
+                    logger.error("[updateStore.store.putObjs] trouble putting entities : %o", e);
+                    reject(e);
+                }
+                else{
+                    logger.info("[updateStore.store.putObjs] saved entities successfully");
+                    resolve();
+                }
+            } );
+
+        });
+        logger.debug("[updateStore|out]");
+    }
+
+    const resetStore = (table, data) => {
+        logger.debug("[resetStore|in] (%s, %o)", table, data);
+        return new Promise(function(resolve, reject) {
+
+            store.findObjIds(table, (e,r) => {
+                if(e){
+                    logger.error("[resetStore.store.findObjIds] trouble finding ids : %o", e);
                     reject(e);
                 }
                 else {
-                    store.delObjs(config.TABLE, r, (e) => {
-                        if(e){
-                            logger.error("[updateStore.store.delObjs] trouble deleting entities : %o", e);
-                            reject(e);
-                        }
-                        else {
-                            store.putObjs(config.TABLE, data.data, (e) => {
-                                if(e){
-                                    logger.error("[updateStore.store.putObjs] trouble putting entities : %o", e);
-                                    reject(e);
-                                }
-                                else{
-                                    logger.info("[updateStore.store.putObjs] saved entities successfully");
-                                    resolve();
-                                }
-                            } );
-                        }
-                    });
+                    if( 0 < r.length ){
+                        store.delObjs(table, r, (e) => {
+                            if(e){
+                                logger.error("[resetStore.store.delObjs] trouble deleting entities : %o", e);
+                                reject(e);
+                            }
+                            else
+                                resolve(data);
+                        });
+                    }
+                    else
+                        resolve(data);
                 }
             });
 
         });
-        logger.debug("[updateStore|out]");
+        logger.debug("[resetStore|out]");
     }
 
 
@@ -219,7 +232,9 @@ const storeLoaderService = (config) => {
             promise.catch(e => callback(e));
             promise = promise.then( d => retrieveImages(bucket, d) );
             promise.catch(e => callback(e));
-            promise = promise.then( d => updateStore(bucket, stage, d) );
+            promise = promise.then( d => resetStore(config.TABLE, d) );
+            promise.catch(e => callback(e));
+            promise = promise.then( d => updateStore(config.TABLE, d) );
             promise.catch(e => callback(e));
             promise.then(callback(null));
         }
