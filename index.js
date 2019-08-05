@@ -60,24 +60,6 @@ const storeLoaderService = (config) => {
         return result;
     };
 
-    const handleDataDescriptorContents = (contents, data) => {
-        logger.debug("[handleDataDescriptorContents|in] (%s)", JSON.stringify(data));
-
-        data.data = {};
-        let config = { delimiter: ',', newline: '\n', quoteChar: '"', comments: true, skipEmptyLines: true };
-        let buff = Buffer.from(contents.Body);
-        let parsed = papa.parse(buff.toString(), config);
-        if(parsed.data && Array.isArray(parsed.data) && 0 < parsed.data.length ){
-            for(let i = 0; i < parsed.data.length; i++){
-                let obj = parsed.data[i];
-                let item = toItem(obj, i);
-                data.data[item.id] = item;
-            }
-        }
-        logger.debug("[handleDataDescriptorContents|out] %o", data);
-        return data;
-    }
-
     const handleDataDescriptorFile = (bucket, folder) => {
         logger.debug("[handleDataDescriptorFile|in] (%s,%s)", bucket, folder);
 
@@ -99,7 +81,7 @@ const storeLoaderService = (config) => {
                             for(let i = 0; i < parsed.data.length; i++){
                                 let obj = parsed.data[i];
                                 let item = toItem(obj, i);
-                                data.data[item.id] = item;
+                                data.data[item.number] = item;
                             }
                         }
                         resolve(data);
