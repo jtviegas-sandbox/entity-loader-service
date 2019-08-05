@@ -211,7 +211,7 @@ const storeLoaderService = (config) => {
             let data = {}
             let promise = handleDataDescriptorFile(bucket, folder, data);
             promise.catch(e => callback(e));
-            promise = listImages(bucket, folder, data);
+            promise = promise.then( listImages(bucket, folder, data) );
             promise.catch(e => callback(e));
             promise = promise.then( d => retrieveImages(bucket, d) );
             promise.catch(e => callback(e));
@@ -231,6 +231,3 @@ const storeLoaderService = (config) => {
 }
 
 module.exports = storeLoaderService;
-
-
-
