@@ -105,7 +105,7 @@ const storeLoaderService = (config) => {
                     try {
                         data.etags = {};
                         for(let i=0; i < d.Contents.length; i++){
-                            let obj = data.Contents[i];
+                            let obj = d.Contents[i];
                             let match = obj.Key.match(imageListingRegex);
                             if( null !== match )
                                 data.etags[obj.ETag] = obj.Key;
