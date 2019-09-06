@@ -1,6 +1,5 @@
-[![Build Status](https://travis-ci.org/jtviegas/bucket-wrapper.svg?branch=master)](https://travis-ci.org/jtviegas/bucket-wrapper)
-[![Coverage Status](https://coveralls.io/repos/github/jtviegas/bucket-wrapper/badge.svg?branch=master)](https://coveralls.io/github/jtviegas/bucket-wrapper?branch=master)
-
+[![Build Status](https://travis-ci.org/jtviegas/store-loader-service.svg?branch=master)](https://travis-ci.org/jtviegas/store-loader-service)
+[![Coverage Status](https://coveralls.io/repos/github/jtviegas/store-loader-service/badge.svg?branch=master)](https://coveralls.io/github/jtviegas/store-loader-service?branch=master)
 store loader service
 =========
 
