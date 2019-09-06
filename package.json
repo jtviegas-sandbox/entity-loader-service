@@ -1,6 +1,6 @@
 {
   "name": "@jtviegas/store-loader-service",
-  "version": "0.0.14",
+  "version": "0.0.15",
   "description": "...that is it, a service that handles entities persistence from an s3 bucket into DynamoDB",
   "main": "index.js",
   "repository": {
@@ -9,6 +9,10 @@
   },
   "engines": {
     "node": ">=4.2.4"
+  },
+  "scripts": {
+    "test": "./test.sh",
+    "cover": "node_modules/istanbul/lib/cli.js cover node_modules/mocha/bin/_mocha -- -R spec test/*"
   },
   "keywords": [
     "aws",
@@ -26,9 +30,11 @@
     "@jtviegas/dyndbstore": "^1.0.8",
     "aws-sdk": "^2.493.0",
     "papaparse": "^5.0.1",
-    "winston": "^3.2.1"
+    "winston": "^3.2.1",
+    "@jtviegas/bucket-wrapper": "latest"
   },
   "devDependencies": {
+    "aws-sdk-mock": "^4.5.0",
     "chai": "^4.2.0",
     "coveralls": "^3.0.5",
     "istanbul": "^0.4.5",

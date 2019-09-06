@@ -2,11 +2,8 @@
 
 const winston = require('winston');
 const store = require('@jtviegas/dyndbstore');
-const aws = require('aws-sdk');
-const s3 = new aws.S3();
 const papa = require('papaparse');
 
-const DATE_PATTERN = /(\d{4})(\d{2})(\d{2})/;
 const imageListingRegex=/^(production|development)\/\d+_\d+\.(png|jpg)/i;
 const imageRegex=/^(production|development)\/(\d+)_*/;
 
@@ -18,6 +15,8 @@ const storeLoaderService = (config) => {
     const logger = winston.createLogger(config['WINSTON_CONFIG']);
     logger.info("...initializing storeLoaderService module...");
 
+    const bucketWrapper = require('@jtviegas/bucket-wrapper')(config);
+
     let storeConfig = { apiVersion: config.DB_API_VERSION , region: config.DB_API_REGION
         , accessKeyId: config.DB_API_ACCESS_KEY_ID , secretAccessKey: config.DB_API_ACCESS_KEY };
 
@@ -27,70 +26,96 @@ const storeLoaderService = (config) => {
     store.init( storeConfig );
     logger.info("...initialized the storeLoaderService successfully !");
 
-    const toItem = (o, index) => {
-        logger.debug("[toItem|in] (%s,%s)", JSON.stringify(o), index);
-        if(!Array.isArray(o))
-            throw Error("items conveyor is not an array: ", o);
+    const toItem = (index, obj, header) => {
+        logger.debug("[toItem|in] (%d,%o,%o)", index, obj, header);
+        if(!Array.isArray(obj))
+            throw Error("entity fields conveyor is not an array");
+        if(0 >= Object.keys(header).length)
+            throw Error("header is not a dictionary");
 
-        if( config.ITEM_PROPERTIES_NUMBER > o.length )
-            throw Error("item conveyor has wrong number of properties: ", o);
+        if( header.length != obj.length )
+            throw Error(`header length is different than entry (line: ${index})`);
 
         let result = {};
-        result['id'] = config.ID_SEED + index;
-        result['number'] = parseInt(o[0], 10);
-        result['family'] = o[1];
-        result['category'] = o[2];
-        result['subcategory'] = o[3];
-        result['name'] = o[4];
-        result['price'] = parseFloat(o[5]);
-        result['notes'] = o[6];
+        result['id'] = index;
+        for(let i=0; i < obj.length; i++){
+            let _header = header[i];
+            let _value = obj[i];
+            result[_header.name] = _header.transformer(_value);
+        }
         result['images'] = [];
-        let dateAsString = null;
-        try{
-            dateAsString = o[7];
-            let dt = new Date(dateAsString.replace(DATE_PATTERN,'$1-$2-$3'));
-            result['ts'] = dt.getTime();
-        }
-        catch(e){
-            logger.error("[toItem] could not parse the date: ", dateAsString, " err:", e)
-            result['ts'] = Date.now();
-        }
-
-        logger.debug("[toItem|out] => %s", JSON.stringify(result));
+        logger.debug("[toItem|out] => %o", result);
         return result;
     };
+
+    const transformer = {
+        n : (v) => {
+            return parseInt(v);
+        }
+        , t : (v) => {
+            return v.trim();
+        }
+        , d : (v) => {
+            let DATE_PATTERN = /(\d{4})(\d{2})(\d{2})/
+            let dt = new Date(v.replace(DATE_PATTERN,'$1-$2-$3'));
+            return dt.getTime();
+        }
+        , f : (v) => {
+            return parseFloat(v);
+        }
+    }
+
+    const getHeaderSpec = (arr) => {
+        logger.debug("[getHeaderSpec|in] (%o)", arr);
+        let result = [];
+        for(let i = 0; i < arr.length; i++){
+            let field = arr[i];
+            let components = field.split("|");
+            let name = components[0].trim();
+            let type = components[1].trim();
+            result.push( { name: name, transformer: transformer[type] } );
+        }
+        logger.debug("[getHeaderSpec|out] => %o", result);
+        return result;
+    }
 
     const handleDataDescriptorFile = (bucket, folder) => {
         logger.debug("[handleDataDescriptorFile|in] (%s,%s)", bucket, folder);
 
         return new Promise(function(resolve, reject) {
-            let params = {
-                Bucket: bucket,
-                Key:  folder + '/' + config.DATA_DESCRIPTOR_FILE
-            };
-            s3.getObject(params, (e,o) => {
-                if(e)
-                    reject(e);
-                else {
-                    try{
-                        let data = { data: {}}
-                        let config = { delimiter: ',', newline: '\n', quoteChar: '"', comments: true, skipEmptyLines: true };
-                        let buff = Buffer.from(o.Body);
-                        let parsed = papa.parse(buff.toString(), config);
-                        if(parsed.data && Array.isArray(parsed.data) && 0 < parsed.data.length ){
-                            for(let i = 0; i < parsed.data.length; i++){
-                                let obj = parsed.data[i];
-                                let item = toItem(obj, i);
-                                data.data[item.number] = item;
-                            }
-                        }
-                        resolve(data);
-                    }
-                    catch(e){
+
+            try {
+                let objkey = folder + '/' + config.DATA_DESCRIPTOR_FILE;
+                logger.debug("getting object: %s", objkey);
+                bucketWrapper.getObject(bucket, objkey, (e,o) => {
+                    if(e)
                         reject(e);
+                    else {
+                        try{
+                            let data = { data: {}}
+                            let config = { delimiter: ',', newline: '\n', quoteChar: '"', comments: true, skipEmptyLines: true };
+                            let buff = Buffer.from(o.Body);
+                            let parsed = papa.parse(buff.toString(), config);
+                            if(parsed.data && Array.isArray(parsed.data) && 0 < parsed.data.length ){
+                                let header = getHeaderSpec(parsed.data[0]);
+                                for(let i = 1; i < parsed.data.length; i++){
+                                    let obj = parsed.data[i];
+                                    let item = toItem(i, obj, header);
+                                    data.data[item.number] = item;
+                                }
+                            }
+                            resolve(data);
+                        }
+                        catch(e){
+                            reject(e);
+                        }
                     }
-                }
-            });
+                });
+            }
+            catch(e){
+                logger.error("[handleDataDescriptorFile.Promise] %o", e);
+                reject(e);
+            }
         });
         logger.debug("[handleDataDescriptorFile|out]");
     }
@@ -98,30 +123,34 @@ const storeLoaderService = (config) => {
     const listImages = (bucket, folder, data) => {
         logger.debug("[listImages|in] (%s, %s, %o)", bucket, folder, data);
         return new Promise(function(resolve, reject) {
-            s3.listObjectsV2({ Bucket: bucket, Prefix: folder + '/' }, function(e, d) {
-                logger.debug("[s3.listObjectsV2|in] (%s, %s, %o)", bucket, folder, data);
-                if (e) {
-                    logger.error("[s3.listObjectsV2|out] e => %o", e);
-                    reject(e);
-                }
-                else {
-                    try {
-                        data.etags = {};
-                        for(let i=0; i < d.Contents.length; i++){
-                            let obj = d.Contents[i];
-                            let match = obj.Key.match(imageListingRegex);
-                            if( null !== match )
-                                data.etags[obj.ETag] = obj.Key;
-                        }
-                        logger.debug("[s3.listObjectsV2|out] => %o", data);
-                        resolve(data);
-                    }
-                    catch(e){
-                        logger.error("[s3.listObjectsV2|out] e => %o", e);
+            try {
+                bucketWrapper.listObjects(bucket, folder , function(e, d) {
+                    logger.debug("[bucketWrapper.listObjects|callback|in] (%o, %o)", e, d);
+                    if (e)
                         reject(e);
+                    else {
+                        try {
+                            data.etags = {};
+                            for(let i=0; i < d.length; i++){
+                                let obj = d[i];
+                                let match = obj.Key.match(imageListingRegex);
+                                if( null !== match )
+                                    data.etags[obj.ETag] = obj.Key;
+                            }
+                            logger.debug("[bucketWrapper.listObjects|callback|out] => %o", data);
+                            resolve(data);
+                        }
+                        catch(e){
+                            logger.error("[bucketWrapper.listObjects|callback|catch] e => %o", e);
+                            reject(e);
+                        }
                     }
-                }
-            });
+                });
+            }
+            catch(e){
+                logger.error("[listImages.Promise] %o", e);
+                reject(e);
+            }
         });
         logger.debug("[listImages|out]");
     }
@@ -139,8 +168,16 @@ const storeLoaderService = (config) => {
 
         let promises = [];
         for (let key in data.etags) {
-            if (data.etags.hasOwnProperty(key))
-                promises.push(s3.getObject({ Bucket: bucket, Key: data.etags[key] }).promise());
+            if (data.etags.hasOwnProperty(key)) {
+                promises.push(new Promise(function (resolve, reject) {
+                    bucketWrapper.getObject(bucket, data.etags[key], (e, r) => {
+                        if (e)
+                            reject(e);
+                        else
+                            resolve(r);
+                    });
+                }));
+            }
         }
 
         return new Promise(function(resolve, reject) {
@@ -176,18 +213,22 @@ const storeLoaderService = (config) => {
     const updateStore = (table, data) => {
         logger.debug("[updateStore|in] (%s, %o)", table, data);
         return new Promise(function(resolve, reject) {
-
-            store.putObjs(table, Object.values(data.data), (e) => {
-                if(e){
-                    logger.error("[updateStore.store.putObjs] trouble putting entities : %o", e);
-                    reject(e);
-                }
-                else{
-                    logger.info("[updateStore.store.putObjs] saved entities successfully");
-                    resolve();
-                }
-            } );
-
+            try {
+                store.putObjs(table, Object.values(data.data), (e) => {
+                    if(e){
+                        logger.error("[updateStore.store.putObjs] trouble putting entities : %o", e);
+                        reject(e);
+                    }
+                    else{
+                        logger.info("[updateStore.store.putObjs] saved entities successfully");
+                        resolve();
+                    }
+                } );
+            }
+            catch(e){
+                logger.error("[updateStore.Promise] %o", e);
+                reject(e);
+            }
         });
         logger.debug("[updateStore|out]");
     }
@@ -195,48 +236,49 @@ const storeLoaderService = (config) => {
     const resetStore = (table, data) => {
         logger.debug("[resetStore|in] (%s, %o)", table, data);
         return new Promise(function(resolve, reject) {
-
-            store.findObjIds(table, (e,r) => {
-                if(e){
-                    logger.error("[resetStore.store.findObjIds] trouble finding ids : %o", e);
-                    reject(e);
-                }
-                else {
-                    if( 0 < r.length ){
-                        store.delObjs(table, r, (e) => {
-                            if(e){
-                                logger.error("[resetStore.store.delObjs] trouble deleting entities : %o", e);
-                                reject(e);
-                            }
-                            else
-                                resolve(data);
-                        });
+            try {
+                store.findObjIds(table, (e,r) => {
+                    if(e){
+                        logger.error("[resetStore.store.findObjIds] trouble finding ids : %o", e);
+                        reject(e);
                     }
-                    else
-                        resolve(data);
-                }
-            });
-
+                    else {
+                        if( 0 < r.length ){
+                            store.delObjs(table, r, (e) => {
+                                if(e){
+                                    logger.error("[resetStore.store.delObjs] trouble deleting entities : %o", e);
+                                    reject(e);
+                                }
+                                else
+                                    resolve(data);
+                            });
+                        }
+                        else
+                            resolve(data);
+                    }
+                });
+            }
+            catch(e){
+                logger.error("[resetStore.Promise] %o", e);
+                reject(e);
+            }
         });
         logger.debug("[resetStore|out]");
     }
 
 
-    const load = (stage, folder, bucket, callback) => {
-        logger.info("[load|in] (%s,%s)", stage, bucket);
+    const load = (env, folder, bucket, callback) => {
+        logger.info("[load|in] (%s,%s)", env, bucket);
 
         try{
-            let promise = handleDataDescriptorFile(bucket, folder);
-            promise.catch(e => callback(e));
-            promise = promise.then( d => listImages(bucket, folder, d) );
-            promise.catch(e => callback(e));
-            promise = promise.then( d => retrieveImages(bucket, d) );
-            promise.catch(e => callback(e));
-            promise = promise.then( d => resetStore(config.TABLE, d) );
-            promise.catch(e => callback(e));
-            promise = promise.then( d => updateStore(config.TABLE, d) );
-            promise.catch(e => callback(e));
-            promise.then(callback(null));
+
+            handleDataDescriptorFile(bucket, folder)
+                .then( d => listImages(bucket, folder, d) )
+                .then( d => retrieveImages(bucket, d) )
+                .then( d => resetStore(config.TABLES[env], d) )
+                .then( d => updateStore(config.TABLES[env], d))
+                .then(() => callback(null))
+                .catch(e => callback(e));
         }
         catch(e){
             logger.error("[load] %o", e);
