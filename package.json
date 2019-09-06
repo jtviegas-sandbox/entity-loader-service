@@ -1,7 +1,7 @@
 {
   "name": "@jtviegas/store-loader-service",
   "version": "0.0.15",
-  "description": "...that is it, a service that handles entities persistence from an s3 bucket into DynamoDB",
+  "description": "...that is it, a service that handles entities persistence from a cloud bucket into a store, reacting to the event triggered by the update of the bucket content",
   "main": "index.js",
   "repository": {
     "type": "git",

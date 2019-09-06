@@ -3,7 +3,7 @@
 store loader service
 =========
 
-...that is it, a service that handles entities persistence from an cloud bucket into a store
+...that is it, a service that handles entities persistence from a cloud bucket into a store, reacting to the event triggered by the update of the bucket content
 
 ## Installation
 
