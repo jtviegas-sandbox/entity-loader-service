@@ -3,6 +3,7 @@
 const winston = require('winston');
 const store = require('@jtviegas/dyndbstore');
 const papa = require('papaparse');
+const commons = require('@jtviegas/jscommons').commons;
 
 const imageListingRegex=/^(production|development)\/\d+_\d+\.(png|jpg)/i;
 const imageRegex=/^(production|development)\/(\d+)_*/;
@@ -12,19 +13,32 @@ const storeLoaderService = (config) => {
     if (!config)
         throw new Error('!!! must provide config to initialize module !!!');
 
-    const logger = winston.createLogger(config['WINSTON_CONFIG']);
+    const CONFIGURATION_SPEC = {
+        DYNDBSTORE_AWS_REGION: 'STORELOADERSERVICE_AWS_REGION'
+        , DYNDBSTORE_AWS_ACCESS_KEY_ID: 'STORELOADERSERVICE_AWS_ACCESS_KEY_ID'
+        , DYNDBSTORE_AWS_ACCESS_KEY: 'STORELOADERSERVICE_AWS_ACCESS_KEY'
+
+        , DYNDBSTORE_AWS_DB_ENDPOINT: 'STORELOADERSERVICE_AWS_DB_ENDPOINT'
+        , BUCKETWRAPPER_AWS_REGION: 'STORELOADERSERVICE_AWS_REGION'
+        , BUCKETWRAPPER_AWS_ACCESS_KEY_ID: 'STORELOADERSERVICE_AWS_ACCESS_KEY_ID'
+        , BUCKETWRAPPER_AWS_ACCESS_KEY: 'STORELOADERSERVICE_AWS_ACCESS_KEY'
+        , STORELOADERSERVICE_DATA_DESCRIPTOR_FILE: 'STORELOADERSERVICE_DATA_DESCRIPTOR_FILE'
+        , STORELOADERSERVICE_BUCKET_HOST_URL: 'STORELOADERSERVICE_BUCKET_HOST_URL'
+        , STORELOADERSERVICE_TENANT: 'STORELOADERSERVICE_TENANT'
+        , STORELOADERSERVICE_ENTITY: 'STORELOADERSERVICE_ENTITY'
+        , STORELOADERSERVICE_ENTITIES_LIST: 'STORELOADERSERVICE_ENTITIES_LIST'
+        , STORELOADERSERVICE_ENVIRONMENTS_LIST: 'STORELOADERSERVICE_ENVIRONMENTS_LIST'
+
+        , BUCKETWRAPPER_TEST: 'STORELOADERSERVICE_BUCKETWRAPPER_TEST'
+    };
+
+    const logger = winston.createLogger(commons.getDefaultWinstonConfig());
     logger.info("...initializing storeLoaderService module...");
+    let configuration = commons.getConfiguration(CONFIGURATION_SPEC, config, commons.handleListVariables);
 
-    const bucketWrapper = require('@jtviegas/bucket-wrapper')(config);
-
-    let storeConfig = { apiVersion: config.DB_API_VERSION , region: config.DB_API_REGION
-        , accessKeyId: config.DB_API_ACCESS_KEY_ID , secretAccessKey: config.DB_API_ACCESS_KEY };
-
-    if( config.DB_ENDPOINT )
-        storeConfig['endpoint'] = config.DB_ENDPOINT;
-
-    store.init( storeConfig );
-    logger.info("...initialized the storeLoaderService successfully !");
+    const bucketWrapper = require('@jtviegas/bucket-wrapper')(configuration);
+    store.init( configuration );
+    logger.info("...initialized the storeLoaderService module successfully !");
 
     const toItem = (index, obj, header) => {
         logger.debug("[toItem|in] (%d,%o,%o)", index, obj, header);
@@ -85,7 +99,7 @@ const storeLoaderService = (config) => {
         return new Promise(function(resolve, reject) {
 
             try {
-                let objkey = folder + '/' + config.DATA_DESCRIPTOR_FILE;
+                let objkey = folder + '/' + configuration.STORELOADERSERVICE_DATA_DESCRIPTOR_FILE;
                 logger.debug("getting object: %s", objkey);
                 bucketWrapper.getObject(bucket, objkey, (e,o) => {
                     if(e)
@@ -159,7 +173,7 @@ const storeLoaderService = (config) => {
         let image = {};
         image['name'] = name.split("/")[1];
         image['type'] = v['ContentType'];
-        image['href'] = config.S3_AMAZON_URL + '/' + bucket + '/' + name;
+        image['href'] = configuration.STORELOADERSERVICE_BUCKET_HOST_URL + '/' + bucket + '/' + name;
         return image;
     };
 
@@ -267,16 +281,24 @@ const storeLoaderService = (config) => {
     }
 
 
-    const load = (env, folder, bucket, callback) => {
-        logger.info("[load|in] (%s,%s)", env, bucket);
+    const load = (environment, folder, bucket, callback) => {
+        logger.info("[load|in] (%s,%s, %s)", environment, folder, bucket);
 
         try{
+
+            let table = commons.getTableNameV1(
+                configuration.STORELOADERSERVICE_TENANT
+                , configuration.STORELOADERSERVICE_ENTITY
+                , environment
+                , configuration.STORELOADERSERVICE_ENTITIES
+                , configuration.STORELOADERSERVICE_ENVIRONMENTS
+            );
 
             handleDataDescriptorFile(bucket, folder)
                 .then( d => listImages(bucket, folder, d) )
                 .then( d => retrieveImages(bucket, d) )
-                .then( d => resetStore(config.TABLES[env], d) )
-                .then( d => updateStore(config.TABLES[env], d))
+                .then( d => resetStore(table, d) )
+                .then( d => updateStore(table, d))
                 .then(() => callback(null))
                 .catch(e => callback(e));
         }

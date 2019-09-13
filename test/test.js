@@ -1,33 +1,72 @@
 'use strict';
 
+const config = {
+
+    STORELOADERSERVICE_AWS_DB_ENDPOINT: 'http://localhost:8000'
+    , STORELOADERSERVICE_AWS_REGION: 'eu-west-1'
+    , STORELOADERSERVICE_AWS_ACCESS_KEY_ID: process.env.ACCESS_KEY_ID
+    , STORELOADERSERVICE_AWS_ACCESS_KEY: process.env.ACCESS_KEY
+    , STORELOADERSERVICE_DATA_DESCRIPTOR_FILE: 'items.txt'
+    , STORELOADERSERVICE_BUCKET_HOST_URL: 'https://s3.eu-west-1.amazonaws.com'
+    , STORELOADERSERVICE_TENANT: 'test'
+    , STORELOADERSERVICE_ENTITY: 'item'
+    , STORELOADERSERVICE_ENTITIES_LIST: 'item,part'
+    , STORELOADERSERVICE_ENTITIES: ['item','part']
+    , STORELOADERSERVICE_ENVIRONMENTS_LIST: 'production,development'
+    , STORELOADERSERVICE_ENVIRONMENTS: ['production','development']
+
+    , STORELOADERSERVICE_BUCKETWRAPPER_TEST: {
+        aws_s3_endpoint: 'http://localhost:5000'
+        , aws_container_name: 's3'
+    }
+
+    , DYNDBSTORE_AWS_REGION: 'eu-west-1'
+    , DYNDBSTORE_AWS_ACCESS_KEY_ID: process.env.ACCESS_KEY_ID
+    , DYNDBSTORE_AWS_ACCESS_KEY: process.env.ACCESS_KEY
+    , DYNDBSTORE_AWS_DB_ENDPOINT: 'http://localhost:8000'
+
+    , BUCKETWRAPPER_AWS_REGION: 'eu-west-1'
+    , BUCKETWRAPPER_AWS_ACCESS_KEY_ID: process.env.ACCESS_KEY_ID
+    , BUCKETWRAPPER_AWS_ACCESS_KEY: process.env.ACCESS_KEY
+    , BUCKETWRAPPER_TEST: {
+        aws_s3_endpoint: 'http://localhost:5000'
+        , aws_container_name: 's3'
+    }
+    , STORELOADERSERVICE_TEST_ENVIRONMENT: 'development'
+    , STORELOADERSERVICE_TEST_RESOURCES: 'test/resources'
+    , STORELOADERSERVICE_TEST_BUCKET: 'test-bucket'
+
+};
+const fs = require('fs');
+const path = require('path');
 const winston = require('winston');
-const config = require("./config");
-const logger = winston.createLogger(config['WINSTON_CONFIG']);
+const commons = require('@jtviegas/jscommons').commons;
+const logger = winston.createLogger(commons.getDefaultWinstonConfig());
 const bw = require('@jtviegas/bucket-wrapper')(config);
 const index = require('../index')(config);
 const chai = require('chai');
 const expect = chai.expect;
 const store = require('@jtviegas/dyndbstore');
-const fs = require('fs');
-
 
 describe('index tests', function() {
 
     this.timeout(50000);
+    let table = commons.getTableNameV1(config.STORELOADERSERVICE_TENANT
+        , config.STORELOADERSERVICE_ENTITY
+        , config.STORELOADERSERVICE_TEST_ENVIRONMENT, config.STORELOADERSERVICE_ENTITIES
+        , config.STORELOADERSERVICE_ENVIRONMENTS);
 
     before(function(done) {
         try{
-            store.init({ apiVersion: config.DB_API_VERSION , region: config.DB_API_REGION
-                , endpoint: config.DB_ENDPOINT,
-                accessKeyId: process.env.DB_API_ACCESS_KEY_ID , secretAccessKey: process.env.DB_API_ACCESS_KEY } );
+            store.init(config );
 
-            new Promise(function(resolve, reject) {
-                store.findTable(config.TABLES.dev, (e,r) => {
+            let promise = new Promise(function(resolve, reject) {
+                store.findTable(table, (e,r) => {
                     if(e)
                         reject(e);
                     else{
                         if(true !== r){
-                            store.createTable(config.TABLES.dev, (e) => {
+                            store.createTable(table, (e) => {
                                 if(e)
                                     reject(e);
                                 else
@@ -38,68 +77,24 @@ describe('index tests', function() {
                             resolve(null);
                     }
                 });
-            }).then(
-                () =>   new Promise(function(resolve, reject) {
-                    let objkey = config.test.bucket_folder + '/' + config.test.filename;
-                    logger.debug("creating object: %s", objkey);
-                    bw.createObject(config.test.bucket, objkey , config.test.file_binary, (e,r) => {
-                            if(e)
-                                reject(e);
-                            else
-                                resolve(null);
-                        });
-                })
-            ).then(
-                    () =>   new Promise(function(resolve, reject) {
-                        let objkey = config.test.bucket_folder + '/' + config.DATA_DESCRIPTOR_FILE;
-                        logger.debug("creating object: %s", objkey);
-                        let data = fs.readFileSync('test/resources/' + config.DATA_DESCRIPTOR_FILE);
-                        bw.createObject(config.test.bucket, objkey , data, (e,r) => {
-                            if(e)
-                                reject(e);
-                            else
-                                resolve(null);
-                        });
-                    })
-            ).then(
-                () =>   new Promise(function(resolve, reject) {
-                    let objkey = config.test.bucket_folder + '/1_1.png';
-                    logger.debug("creating object: %s", objkey);
-                    let data = fs.readFileSync('test/resources/1_1.png');
-                    bw.createObject(config.test.bucket, objkey , data, (e,r) => {
+            });
+            let files = fs.readdirSync(config.STORELOADERSERVICE_TEST_RESOURCES);
+            for(let i=0; i < files.length; i++){
+                promise = promise.then(() => new Promise(function(resolve, reject) {
+                    let file = files[i];
+                    let filePath = path.join(config.STORELOADERSERVICE_TEST_RESOURCES, file);
+                    let bucketKey = `${config.STORELOADERSERVICE_TEST_ENVIRONMENT}/${file}`
+                    let data = fs.readFileSync(filePath);
+                    bw.createObject(config.STORELOADERSERVICE_TEST_BUCKET, bucketKey , data, (e,r) => {
                         if(e)
                             reject(e);
                         else
                             resolve(null);
                     });
-                })
-            ).then(
-                () =>   new Promise(function(resolve, reject) {
-                    let objkey = config.test.bucket_folder + '/1_2.png';
-                    logger.debug("creating object: %s", objkey);
-                    let data = fs.readFileSync('test/resources/1_2.png');
-                    bw.createObject(config.test.bucket, objkey , data, (e,r) => {
-                        if(e)
-                            reject(e);
-                        else
-                            resolve(null);
-                    });
-                })
-            ).then(
-                () =>   new Promise(function(resolve, reject) {
-                    let objkey = config.test.bucket_folder + '/3_1.png';
-                    logger.debug("creating object: %s", objkey);
-                    let data = fs.readFileSync('test/resources/3_1.png');
-                    bw.createObject(config.test.bucket, objkey , data, (e,r) => {
-                        if(e)
-                            reject(e);
-                        else
-                            resolve(null);
-                    });
-                })
-            )
-                .then(() => done(null))
-                .catch(e => done(e));
+                }));
+            }
+
+            promise.then(() => done(null)) .catch(e => done(e));
 
         }
         catch(e){
@@ -112,13 +107,13 @@ describe('index tests', function() {
 
         it('should store 3 objects', function(done) {
 
-            index.load('dev','development', 'test-items', (e,d)=>{
+            index.load(config.STORELOADERSERVICE_TEST_ENVIRONMENT,config.STORELOADERSERVICE_TEST_ENVIRONMENT, config.STORELOADERSERVICE_TEST_BUCKET, (e,d)=>{
                 logger.info("e: %o", e);
                 if(e)
                     done(e);
                 else {
                     try{
-                        store.getObjs(config.TABLES.dev, (e,r) => {
+                        store.getObjs(table, (e,r) => {
                             if(e)
                                 done(e);
                             else {
