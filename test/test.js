@@ -107,7 +107,7 @@ describe('index tests', function() {
 
         it('should store 3 objects', function(done) {
 
-            index.load(config.STORELOADERSERVICE_TEST_ENVIRONMENT,config.STORELOADERSERVICE_TEST_ENVIRONMENT, config.STORELOADERSERVICE_TEST_BUCKET, (e,d)=>{
+            index.load(config.STORELOADERSERVICE_TEST_ENVIRONMENT, config.STORELOADERSERVICE_TEST_BUCKET, (e,d)=>{
                 logger.info("e: %o", e);
                 if(e)
                     done(e);

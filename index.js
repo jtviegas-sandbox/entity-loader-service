@@ -281,11 +281,11 @@ const storeLoaderService = (config) => {
     }
 
 
-    const load = (environment, folder, bucket, callback) => {
-        logger.info("[load|in] (%s,%s, %s)", environment, folder, bucket);
+    const load = (environment, bucket, callback) => {
+        logger.info("[load|in] (%s,%s)", environment, bucket);
 
         try{
-
+            let folder = environment;
             let table = commons.getTableNameV1(
                 configuration.STORELOADERSERVICE_TENANT
                 , configuration.STORELOADERSERVICE_ENTITY
