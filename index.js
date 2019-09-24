@@ -4,6 +4,7 @@ const winston = require('winston');
 const store = require('@jtviegas/dyndbstore');
 const papa = require('papaparse');
 const commons = require('@jtviegas/jscommons').commons;
+const logger = winston.createLogger(commons.getDefaultWinstonConfig());
 
 const imageListingRegex=/^(production|development)\/\d+_\d+\.(png|jpg)/i;
 const imageRegex=/^(production|development)\/(\d+)_*/;
@@ -13,35 +14,34 @@ const storeLoaderService = (config) => {
     if (!config)
         throw new Error('!!! must provide config to initialize module !!!');
 
+    const constants = {
+        STORELOADERSERVICE_BUCKET_HOST_URL: 'https://s3.eu-west-1.amazonaws.com'
+    };
+
+    let conf = commons.mergeConfiguration(config, constants);
     const CONFIGURATION_SPEC = {
         DYNDBSTORE_AWS_REGION: 'STORELOADERSERVICE_AWS_REGION'
         , DYNDBSTORE_AWS_ACCESS_KEY_ID: 'STORELOADERSERVICE_AWS_ACCESS_KEY_ID'
         , DYNDBSTORE_AWS_ACCESS_KEY: 'STORELOADERSERVICE_AWS_ACCESS_KEY'
-
-        , DYNDBSTORE_AWS_DB_ENDPOINT: 'STORELOADERSERVICE_AWS_DB_ENDPOINT'
         , BUCKETWRAPPER_AWS_REGION: 'STORELOADERSERVICE_AWS_REGION'
         , BUCKETWRAPPER_AWS_ACCESS_KEY_ID: 'STORELOADERSERVICE_AWS_ACCESS_KEY_ID'
         , BUCKETWRAPPER_AWS_ACCESS_KEY: 'STORELOADERSERVICE_AWS_ACCESS_KEY'
         , STORELOADERSERVICE_DATA_DESCRIPTOR_FILE: 'STORELOADERSERVICE_DATA_DESCRIPTOR_FILE'
-        , STORELOADERSERVICE_BUCKET_HOST_URL: 'STORELOADERSERVICE_BUCKET_HOST_URL'
-        , STORELOADERSERVICE_TENANT: 'STORELOADERSERVICE_TENANT'
-        , STORELOADERSERVICE_ENTITY: 'STORELOADERSERVICE_ENTITY'
-        , STORELOADERSERVICE_ENTITIES_LIST: 'STORELOADERSERVICE_ENTITIES_LIST'
-        , STORELOADERSERVICE_ENVIRONMENTS_LIST: 'STORELOADERSERVICE_ENVIRONMENTS_LIST'
 
-        , BUCKETWRAPPER_TEST: 'STORELOADERSERVICE_BUCKETWRAPPER_TEST'
+        // testing environment
+        , DYNDBSTORE_TEST: 'STORELOADERSERVICE_TEST'
+        , BUCKETWRAPPER_TEST: 'STORELOADERSERVICE_TEST'
     };
 
-    const logger = winston.createLogger(commons.getDefaultWinstonConfig());
-    logger.info("...initializing storeLoaderService module...");
-    let configuration = commons.getConfiguration(CONFIGURATION_SPEC, config, commons.handleListVariables);
 
+    logger.info("[storeLoaderService]...initializing storeLoaderService module...");
+    let configuration = commons.getConfiguration(CONFIGURATION_SPEC, conf);
     const bucketWrapper = require('@jtviegas/bucket-wrapper')(configuration);
     store.init( configuration );
-    logger.info("...initialized the storeLoaderService module successfully !");
+    logger.info("[storeLoaderService]...initialized the storeLoaderService module successfully !");
 
     const toItem = (index, obj, header) => {
-        logger.debug("[toItem|in] (%d,%o,%o)", index, obj, header);
+        logger.debug("[storeLoaderService|toItem|in] (%d,%o,%o)", index, obj, header);
         if(!Array.isArray(obj))
             throw Error("entity fields conveyor is not an array");
         if(0 >= Object.keys(header).length)
@@ -58,7 +58,7 @@ const storeLoaderService = (config) => {
             result[_header.name] = _header.transformer(_value);
         }
         result['images'] = [];
-        logger.debug("[toItem|out] => %o", result);
+        logger.debug("[storeLoaderService|toItem|out] => %o", result);
         return result;
     };
 
@@ -80,7 +80,7 @@ const storeLoaderService = (config) => {
     }
 
     const getHeaderSpec = (arr) => {
-        logger.debug("[getHeaderSpec|in] (%o)", arr);
+        logger.debug("[storeLoaderService|getHeaderSpec|in] (%o)", arr);
         let result = [];
         for(let i = 0; i < arr.length; i++){
             let field = arr[i];
@@ -89,18 +89,18 @@ const storeLoaderService = (config) => {
             let type = components[1].trim();
             result.push( { name: name, transformer: transformer[type] } );
         }
-        logger.debug("[getHeaderSpec|out] => %o", result);
+        logger.debug("[storeLoaderService|getHeaderSpec|out] => %o", result);
         return result;
     }
 
     const handleDataDescriptorFile = (bucket, folder) => {
-        logger.debug("[handleDataDescriptorFile|in] (%s,%s)", bucket, folder);
+        logger.debug("[storeLoaderService|handleDataDescriptorFile|in] (%s,%s)", bucket, folder);
 
         return new Promise(function(resolve, reject) {
 
             try {
                 let objkey = folder + '/' + configuration.STORELOADERSERVICE_DATA_DESCRIPTOR_FILE;
-                logger.debug("getting object: %s", objkey);
+                logger.debug("[storeLoaderService|handleDataDescriptorFile] getting object: %s", objkey);
                 bucketWrapper.getObject(bucket, objkey, (e,o) => {
                     if(e)
                         reject(e);
@@ -127,19 +127,19 @@ const storeLoaderService = (config) => {
                 });
             }
             catch(e){
-                logger.error("[handleDataDescriptorFile.Promise] %o", e);
+                logger.error("[storeLoaderService|handleDataDescriptorFile.Promise] %o", e);
                 reject(e);
             }
         });
-        logger.debug("[handleDataDescriptorFile|out]");
+        logger.debug("[storeLoaderService|handleDataDescriptorFile|out]");
     }
 
     const listImages = (bucket, folder, data) => {
-        logger.debug("[listImages|in] (%s, %s, %o)", bucket, folder, data);
+        logger.debug("[storeLoaderService|listImages|in] (%s, %s, %o)", bucket, folder, data);
         return new Promise(function(resolve, reject) {
             try {
                 bucketWrapper.listObjects(bucket, folder , function(e, d) {
-                    logger.debug("[bucketWrapper.listObjects|callback|in] (%o, %o)", e, d);
+                    logger.debug("[storeLoaderService|listImages|bucketWrapper.listObjects|callback|in] (%o, %o)", e, d);
                     if (e)
                         reject(e);
                     else {
@@ -151,22 +151,22 @@ const storeLoaderService = (config) => {
                                 if( null !== match )
                                     data.etags[obj.ETag] = obj.Key;
                             }
-                            logger.debug("[bucketWrapper.listObjects|callback|out] => %o", data);
+                            logger.debug("[storeLoaderService|listImages|bucketWrapper.listObjects|callback|out] => %o", data);
                             resolve(data);
                         }
                         catch(e){
-                            logger.error("[bucketWrapper.listObjects|callback|catch] e => %o", e);
+                            logger.error("[storeLoaderService|listImages|bucketWrapper.listObjects|callback|catch] e => %o", e);
                             reject(e);
                         }
                     }
                 });
             }
             catch(e){
-                logger.error("[listImages.Promise] %o", e);
+                logger.error("[storeLoaderService|listImages.Promise] %o", e);
                 reject(e);
             }
         });
-        logger.debug("[listImages|out]");
+        logger.debug("[storeLoaderService|listImages|out]");
     }
 
     const toImage = (bucket, name, v) => {
@@ -281,18 +281,11 @@ const storeLoaderService = (config) => {
     }
 
 
-    const load = (environment, bucket, callback) => {
-        logger.info("[load|in] (%s,%s)", environment, bucket);
-
+    const load = (app, entity, environment, bucket, callback) => {
+        logger.info("[storeLoaderService|load|in] (%s,%s)", environment, bucket);
         try{
-            let folder = environment;
-            let table = commons.getTableNameV1(
-                configuration.STORELOADERSERVICE_TENANT
-                , configuration.STORELOADERSERVICE_ENTITY
-                , environment
-                , configuration.STORELOADERSERVICE_ENTITIES
-                , configuration.STORELOADERSERVICE_ENVIRONMENTS
-            );
+            let table = commons.getTableNameV3(app , entity , environment);
+            let folder = `${entity}/${environment}`;
 
             handleDataDescriptorFile(bucket, folder)
                 .then( d => listImages(bucket, folder, d) )
@@ -303,11 +296,10 @@ const storeLoaderService = (config) => {
                 .catch(e => callback(e));
         }
         catch(e){
-            logger.error("[load] %o", e);
+            logger.error("[storeLoaderService|load] %o", e);
             callback(e);
         }
-
-        logger.info("[load|out]");
+        logger.info("[storeLoaderService|load|out]");
     }
 
     return { load: load }

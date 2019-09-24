@@ -12,35 +12,26 @@ a service that handles entities persistence from a cloud bucket into a store, re
 ## Usage
 
 ### required environment variables or configuration properties
-  - STORELOADERSERVICE_AWS_DB_ENDPOINT - optional, for testing purposes, will use `aws` account to connect to `DynamoDb`
   - STORELOADERSERVICE_AWS_REGION
   - STORELOADERSERVICE_AWS_ACCESS_KEY_ID
   - STORELOADERSERVICE_AWS_ACCESS_KEY
   - STORELOADERSERVICE_DATA_DESCRIPTOR_FILE
-  - STORELOADERSERVICE_BUCKET_HOST_URL
-  - STORELOADERSERVICE_TENANT
-  - STORELOADERSERVICE_ENTITY
-  - STORELOADERSERVICE_ENTITIES_LIST
-  - STORELOADERSERVICE_ENVIRONMENTS_LIST
-
+  - for testing purposes: STORELOADERSERVICE_TEST: {
+                                    bucket_endpoint: 'http://localhost:5000'
+                                    , store_endpoint: 'http://localhost:8000'
+                                }
 ### code snippet example
 
     ...
     const config = {
-        STORELOADERSERVICE_AWS_DB_ENDPOINT: 'http://localhost:8000' 
-        , STORELOADERSERVICE_AWS_REGION: 'eu-west-1'
-        , STORELOADERSERVICE_AWS_ACCESS_KEY_ID: process.env.ACCESS_KEY_ID
-        , STORELOADERSERVICE_AWS_ACCESS_KEY: process.env.ACCESS_KEY
-        , STORELOADERSERVICE_DATA_DESCRIPTOR_FILE: 'items.txt'
-        , STORELOADERSERVICE_BUCKET_HOST_URL: 'https://s3.eu-west-1.amazonaws.com'
-        , STORELOADERSERVICE_TENANT: 'test'
-        , STORELOADERSERVICE_ENTITY: 'item'
-        , STORELOADERSERVICE_ENTITIES_LIST: 'item,part'
-        , STORELOADERSERVICE_ENVIRONMENTS_LIST: 'production,development'
+        STORELOADERSERVICE_AWS_REGION: 'eu-west-1'
+            , STORELOADERSERVICE_AWS_ACCESS_KEY_ID: process.env.ACCESS_KEY_ID
+            , STORELOADERSERVICE_AWS_ACCESS_KEY: process.env.ACCESS_KEY
+            , STORELOADERSERVICE_DATA_DESCRIPTOR_FILE: 'data.spec'
     }
     const service = require('@jtviegas/store-loader-service')(config);
     ...
-    service.load(environment,folder, bucket, callback);
+    service.load(app, entity, environment, bucket, callback);
     
   Check the test folder in source tree.
   
