@@ -5,7 +5,6 @@ services:
 
 before_install:
   - docker pull localstack/localstack
-  - docker pull amazon/dynamodb-local
 
 node_js:
   - stable
