@@ -1,6 +1,6 @@
 {
   "name": "@jtviegas/store-loader-service",
-  "version": "0.0.20",
+  "version": "0.0.21",
   "description": "a service that handles entities persistence from a cloud bucket into a store, reacting to the event triggered by the update of the bucket content",
   "main": "index.js",
   "repository": {

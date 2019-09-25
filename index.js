@@ -6,8 +6,8 @@ const papa = require('papaparse');
 const commons = require('@jtviegas/jscommons').commons;
 const logger = winston.createLogger(commons.getDefaultWinstonConfig());
 
-const imageListingRegex=/^(production|development)\/\d+_\d+\.(png|jpg)/i;
-const imageRegex=/^(production|development)\/(\d+)_*/;
+const imageListingRegex=/^.*\/(production|development|test)\/\d+_\d+\.(png|jpg)/i;
+const imageRegex=/^.*\/(production|development|test)\/(\d+)_*/;
 
 const storeLoaderService = (config) => {
 
@@ -18,7 +18,6 @@ const storeLoaderService = (config) => {
         STORELOADERSERVICE_BUCKET_HOST_URL: 'https://s3.eu-west-1.amazonaws.com'
     };
 
-    let conf = commons.mergeConfiguration(config, constants);
     const CONFIGURATION_SPEC = {
         DYNDBSTORE_AWS_REGION: 'STORELOADERSERVICE_AWS_REGION'
         , DYNDBSTORE_AWS_ACCESS_KEY_ID: 'STORELOADERSERVICE_AWS_ACCESS_KEY_ID'
@@ -35,7 +34,7 @@ const storeLoaderService = (config) => {
 
 
     logger.info("[storeLoaderService]...initializing storeLoaderService module...");
-    let configuration = commons.getConfiguration(CONFIGURATION_SPEC, conf);
+    let configuration = commons.mergeConfiguration(commons.getConfiguration(CONFIGURATION_SPEC, config), constants);
     const bucketWrapper = require('@jtviegas/bucket-wrapper')(configuration);
     store.init( configuration );
     logger.info("[storeLoaderService]...initialized the storeLoaderService module successfully !");
