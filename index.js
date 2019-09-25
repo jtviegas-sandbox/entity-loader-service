@@ -170,7 +170,7 @@ const storeLoaderService = (config) => {
 
     const toImage = (bucket, name, v) => {
         let image = {};
-        image['name'] = name.split("/")[1];
+        image['name'] = name.split("/")[2];
         image['type'] = v['ContentType'];
         image['href'] = configuration.STORELOADERSERVICE_BUCKET_HOST_URL + '/' + bucket + '/' + name;
         return image;
