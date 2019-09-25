@@ -36,18 +36,18 @@ echo "...starting aws mock container..."
 docker run --name $CONTAINER -d -e SERVICES="s3:5000,dynamodb:8000" -e DEFAULT_REGION=$AWS_REGION -p 5000:5000 -p 8000:8000 localstack/localstack
 
 echo "...creating testing buckets..."
-createBucket ${BUCKET} ${AWS_S3_URL}
+createBucket "${BUCKET}" "${AWS_S3_URL}"
 __r=$?
 
 if [ "$__r" -eq "0" ] ; then
   debug "...synch folder $FOLDER with bucket ${BUCKET} ..."
-  copyLocalFolderContentsToBucket "${FOLDER}" ${BUCKET} "${FILE_EXCLUDE}" ${AWS_S3_URL}
+  copyLocalFolderContentsToBucket "${FOLDER}" ${BUCKET} "${FILE_EXCLUDE}" "${AWS_S3_URL}"
   __r=$?
 fi
 
 if [ "$__r" -eq "0" ] ; then
   echo "...creating store table $TABLE..."
-  createTable ${TABLE} ${AWS_DB_URL}
+  createTable ${TABLE} "${AWS_DB_URL}"
   __r=$?
 fi
 
