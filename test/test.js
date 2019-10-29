@@ -59,7 +59,7 @@ describe('index tests', function() {
                     done(e);
                 else {
                     try{
-                        let table = commons.getTableNameV3(config.APP, config.ENTITY, config.ENVIRONMENT);
+                        let table = commons.getTableNameV4(config.APP, config.ENTITY, config.ENVIRONMENT);
                         store.getObjs(table, (e,r) => {
                             if(e)
                                 done(e);

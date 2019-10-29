@@ -283,7 +283,7 @@ const storeLoaderService = (config) => {
     const load = (app, entity, environment, bucket, callback) => {
         logger.info("[storeLoaderService|load|in] (%s,%s)", environment, bucket);
         try{
-            let table = commons.getTableNameV3(app , entity , environment);
+            let table = commons.getTableNameV4(app , entity , environment);
             let folder = `${entity}/${environment}`;
 
             handleDataDescriptorFile(bucket, folder)

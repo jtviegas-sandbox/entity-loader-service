@@ -1,6 +1,6 @@
 {
   "name": "@jtviegas/store-loader-service",
-  "version": "0.0.22",
+  "version": "0.0.23",
   "description": "a service that handles entities persistence from a cloud bucket into a store, reacting to the event triggered by the update of the bucket content",
   "main": "index.js",
   "repository": {
@@ -27,19 +27,19 @@
   },
   "homepage": "https://github.com/jtviegas/store-loader-service#readme",
   "dependencies": {
-    "@jtviegas/bucket-wrapper": "0.0.7",
-    "@jtviegas/dyndbstore": "^1.0.13",
+    "@jtviegas/bucket-wrapper": "latest",
+    "@jtviegas/dyndbstore": "latest",
     "@jtviegas/jscommons": "latest",
-    "aws-sdk": "^2.535.0",
+    "aws-sdk": "^2.558.0",
     "papaparse": "^5.1.0",
     "winston": "^3.2.1"
   },
   "devDependencies": {
     "aws-sdk-mock": "^4.5.0",
     "chai": "^4.2.0",
-    "coveralls": "^3.0.6",
-    "handlebars": "^4.3.0",
+    "coveralls": "^3.0.7",
+    "handlebars": "^4.5.1",
     "istanbul": "^0.4.5",
-    "mocha": "^6.1.4"
+    "mocha": "^6.2.2"
   }
 }

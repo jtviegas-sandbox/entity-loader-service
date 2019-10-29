@@ -20,7 +20,7 @@ AWS_DB_URL="http://localhost:8000"
 ENTITY="item"
 ENVIRONMENT="development"
 APP="test"
-TABLE="${APP}_${ENTITY}_${ENVIRONMENT}"
+TABLE="${APP}-${ENVIRONMENT}-${ENTITY}"
 
 echo "starting store loader service tests..."
 
