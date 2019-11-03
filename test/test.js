@@ -26,10 +26,10 @@ const config = {
     , DYNDBSTORE_AWS_ACCESS_KEY: process.env.ACCESS_KEY
     , DYNDBSTORE_AWS_DB_ENDPOINT: 'http://localhost:8000'
 
-    , APP: 'test'
-    , ENTITY: 'item'
+    , APP: 'app'
+    , ENTITIES: ['entity1','entity2']
     , ENVIRONMENT: 'development'
-    , BUCKET: 'test'
+    , BUCKET: "app-development-entities"
 
 };
 
@@ -39,6 +39,11 @@ const index = require('../index')(config);
 describe('index tests', function() {
 
     this.timeout(50000);
+    let tables = [];
+    for( let i=0; i < config.ENTITIES.length; i++ ){
+        tables.push(commons.getTableNameV4(config.APP, config.ENTITIES[i], config.ENVIRONMENT))
+    }
+
     before(function(done) {
         try{
             store.init(config);
@@ -49,25 +54,28 @@ describe('index tests', function() {
         }
     });
 
-    describe('...bucket event on development with 3 items', function(done) {
+    describe('...bucket event on development with 3 items on each entity folder', function(done) {
 
-        it('should store 3 objects', function(done) {
+        it('should store 3 objects in each table', function(done) {
 
-            index.load(config.APP, config.ENTITY, config.ENVIRONMENT, config.BUCKET, (e,d)=>{
+            index.load(config.APP, config.ENVIRONMENT, config.BUCKET, (e,d)=>{
                 logger.info("e: %o", e);
                 if(e)
                     done(e);
                 else {
                     try{
-                        let table = commons.getTableNameV4(config.APP, config.ENTITY, config.ENVIRONMENT);
-                        store.getObjs(table, (e,r) => {
-                            if(e)
-                                done(e);
-                            else {
-                                expect(r.length).to.equal(3);
-                                done(null);
-                            }
-                        });
+                        for( let i=0; i < tables.length; i++ ) {
+                            let table = tables[i];
+                            store.getObjs(table, (e, r) => {
+                                if (e)
+                                    done(e);
+                                else {
+                                    expect(r.length).to.equal(3);
+                                    if( i == (tables.length-1) )
+                                        done(null);
+                                }
+                            });
+                        }
                     }
                     catch(e){
                         done(e);

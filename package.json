@@ -27,10 +27,10 @@
   },
   "homepage": "https://github.com/jtviegas/store-loader-service#readme",
   "dependencies": {
-    "@jtviegas/bucket-wrapper": "latest",
+    "@jtviegas/bucket-wrapper": "0.0.8",
     "@jtviegas/dyndbstore": "latest",
     "@jtviegas/jscommons": "latest",
-    "aws-sdk": "^2.558.0",
+    "aws-sdk": "^2.562.0",
     "papaparse": "^5.1.0",
     "winston": "^3.2.1"
   },

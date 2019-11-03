@@ -16,6 +16,7 @@ const storeLoaderService = (config) => {
 
     const constants = {
         STORELOADERSERVICE_BUCKET_HOST_URL: 'https://s3.eu-west-1.amazonaws.com'
+        , BUCKET_CONTENT_EXCEPTIONS: ["trigger"]
     };
 
     const CONFIGURATION_SPEC = {
@@ -93,43 +94,45 @@ const storeLoaderService = (config) => {
     }
 
     const handleDataDescriptorFile = (bucket, folder) => {
-        logger.debug("[storeLoaderService|handleDataDescriptorFile|in] (%s,%s)", bucket, folder);
+        logger.debug("[storeLoaderService|handleDataDescriptorFile|in] (%s,%o)", bucket, folder);
 
-        return new Promise(function(resolve, reject) {
-
-            try {
-                let objkey = folder + '/' + configuration.STORELOADERSERVICE_DATA_DESCRIPTOR_FILE;
-                logger.debug("[storeLoaderService|handleDataDescriptorFile] getting object: %s", objkey);
-                bucketWrapper.getObject(bucket, objkey, (e,o) => {
-                    if(e)
-                        reject(e);
-                    else {
-                        try{
-                            let data = { data: {}}
-                            let config = { delimiter: ',', newline: '\n', quoteChar: '"', comments: true, skipEmptyLines: true };
-                            let buff = Buffer.from(o.Body);
-                            let parsed = papa.parse(buff.toString(), config);
-                            if(parsed.data && Array.isArray(parsed.data) && 0 < parsed.data.length ){
-                                let header = getHeaderSpec(parsed.data[0]);
-                                for(let i = 1; i < parsed.data.length; i++){
-                                    let obj = parsed.data[i];
-                                    let item = toItem(i, obj, header);
-                                    data.data[item.number] = item;
-                                }
-                            }
-                            resolve(data);
-                        }
-                        catch(e){
+            return new Promise(function(resolve, reject) {
+                try {
+                    let objkey = folder + '/' + configuration.STORELOADERSERVICE_DATA_DESCRIPTOR_FILE;
+                    logger.debug("[storeLoaderService|handleDataDescriptorFile] getting object: %s", objkey);
+                    bucketWrapper.getObject(bucket, objkey, (e,o) => {
+                        if(e)
                             reject(e);
+                        else {
+                            try{
+                                let data = { data: {}}
+                                let config = { delimiter: ',', newline: '\n', quoteChar: '"', comments: true, skipEmptyLines: true };
+                                let buff = Buffer.from(o.Body);
+                                let parsed = papa.parse(buff.toString(), config);
+                                if(parsed.data && Array.isArray(parsed.data) && 0 < parsed.data.length ){
+                                    let header = getHeaderSpec(parsed.data[0]);
+                                    for(let i = 1; i < parsed.data.length; i++){
+                                        let obj = parsed.data[i];
+                                        let item = toItem(i, obj, header);
+                                        data.data[item.number] = item;
+                                    }
+                                }
+                                resolve(data);
+                            }
+                            catch(e){
+                                reject(e);
+                            }
                         }
-                    }
-                });
-            }
-            catch(e){
-                logger.error("[storeLoaderService|handleDataDescriptorFile.Promise] %o", e);
-                reject(e);
-            }
-        });
+                    });
+
+
+                }
+                catch(e){
+                    logger.error("[storeLoaderService|handleDataDescriptorFile.Promise] %o", e);
+                    reject(e);
+                }
+            });
+
         logger.debug("[storeLoaderService|handleDataDescriptorFile|out]");
     }
 
@@ -279,20 +282,72 @@ const storeLoaderService = (config) => {
         logger.debug("[resetStore|out]");
     }
 
+    const listEntities = (bucket, callback) => {
+        logger.debug("[storeLoaderService|listEntities|in] (%s)", bucket);
 
-    const load = (app, entity, environment, bucket, callback) => {
+        try {
+            bucketWrapper.listObjects(bucket, "" , function(e, d) {
+                logger.debug("[storeLoaderService|listEntities|bucketWrapper.listObjects|callback|in] (%o, %o)", e, d);
+                if (e)
+                    callback(e);
+                else {
+                    try {
+
+                        let data = [];
+                        for(let i=0; i < d.length; i++){
+                            let key = d[i].Key;
+                            let entity = key.split("/")[0];
+                            if( -1 === data.indexOf(entity) && -1 === constants.BUCKET_CONTENT_EXCEPTIONS.indexOf(entity) )
+                                data.push(entity);
+                        }
+
+                        logger.debug("[storeLoaderService|listEntities|listObjects|callback|out] => %o", data);
+                        callback(null,data);
+                    }
+                    catch(e){
+                        logger.error("[storeLoaderService|listEntities|listObjects|callback|catch] e => %o", e);
+                        callback(e);
+                    }
+                }
+            });
+        }
+        catch(e){
+            logger.error("[storeLoaderService|listEntities.Promise] %o", e);
+            callback(e);
+        }
+
+        logger.debug("[storeLoaderService|listEntities|out]");
+    }
+
+    const load = (app, environment, bucket, callback) => {
         logger.info("[storeLoaderService|load|in] (%s,%s)", environment, bucket);
         try{
-            let table = commons.getTableNameV4(app , entity , environment);
-            let folder = `${entity}/${environment}`;
+            // so for every first level folder/key in teh bucket we will interpret it as an entity
+            // and inside it
+            listEntities(bucket, (e,d) => {
+                if(e)
+                    callback(e);
+                else {
+                    try {
+                        let promise = null;
+                        for( let i=0; i < d.length; i++ ){
+                            let entity = d[i];
+                            let table = commons.getTableNameV4(app , entity , environment);
+                            let folder = entity; // for the sake of readability
+                            if( ! promise )
+                                promise = loadFolderPromise (app, environment, bucket, folder);
+                            else
+                                promise = promise.then(loadFolderPromise (app, environment, bucket, folder));
+                        }
+                        promise.then(() => callback(null)).catch(e => callback(e));
+                    }
+                    catch(e){
+                        logger.error("[storeLoaderService|load|listEntities|callback] %o", e);
+                        callback(e);
+                    }
+                }
+            });
 
-            handleDataDescriptorFile(bucket, folder)
-                .then( d => listImages(bucket, folder, d) )
-                .then( d => retrieveImages(bucket, d) )
-                .then( d => resetStore(table, d) )
-                .then( d => updateStore(table, d))
-                .then(() => callback(null))
-                .catch(e => callback(e));
         }
         catch(e){
             logger.error("[storeLoaderService|load] %o", e);
@@ -300,6 +355,26 @@ const storeLoaderService = (config) => {
         }
         logger.info("[storeLoaderService|load|out]");
     }
+
+    const loadFolderPromise = (app, environment, bucket, entity) => {
+        logger.info("[storeLoaderService|loadFolderPromise|in] (%s,%s,%s,%s)", app, environment, bucket, entity);
+        let result = null;
+
+        let table = commons.getTableNameV4(app , entity , environment);
+        let folder = entity;
+
+        result = handleDataDescriptorFile(bucket, folder)
+            .then( d => listImages(bucket, folder, d) )
+            .then( d => retrieveImages(bucket, d) )
+            .then( d => resetStore(table, d) )
+            .then( d => updateStore(table, d));
+          /*  .then(() => callback(null))
+            .catch(e => callback(e));*/
+
+        logger.info("[storeLoaderService|loadFolderPromise|out] => %o", result);
+        return result;
+    }
+
 
     return { load: load }
 }
