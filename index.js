@@ -6,8 +6,8 @@ const papa = require('papaparse');
 const commons = require('@jtviegas/jscommons').commons;
 const logger = winston.createLogger(commons.getDefaultWinstonConfig());
 
-const imageListingRegex=/^.*\/(production|development|test)\/\d+_\d+\.(png|jpg)/i;
-const imageRegex=/^.*\/(production|development|test)\/(\d+)_*/;
+const imageListingRegex=/^.*\/\d+_\d+\.(png|jpg)/i;
+const imageRegex=/^.*\/(\d+)_*/;
 
 const storeLoaderService = (config) => {
 
@@ -205,7 +205,7 @@ const storeLoaderService = (config) => {
                         let filename = data.etags[o.ETag];
                         let match = filename.match(imageRegex);
                         if( null !== match && Array.isArray(match) && 1 < match.length ){
-                            let number = parseInt(match[2], 10);
+                            let number = parseInt(match[1], 10);
                             if( ! data.data[number] )
                                 throw Error('wrong number on image: ' + filename );
                             let image = toImage(bucket, filename,o);
