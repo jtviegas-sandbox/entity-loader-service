@@ -1,38 +1,30 @@
 [![Build Status](https://travis-ci.org/jtviegas/store-loader-service.svg?branch=master)](https://travis-ci.org/jtviegas/store-loader-service)
 [![Coverage Status](https://coveralls.io/repos/github/jtviegas/store-loader-service/badge.svg?branch=master)](https://coveralls.io/github/jtviegas/store-loader-service?branch=master)
 
-store loader service
+entity loader service
 =========
 
 a service that handles entities persistence from a cloud bucket into a store, reacting to the event triggered by the update of the bucket content
 
 ## Installation
 
-  `npm install @jtviegas/store-loader-service`
+  `npm install @jtviegas/entity-loader-service`
 
 ## Usage
 
-### required environment variables or configuration properties
-  - STORELOADERSERVICE_AWS_REGION
-  - STORELOADERSERVICE_AWS_ACCESS_KEY_ID
-  - STORELOADERSERVICE_AWS_ACCESS_KEY
-  - STORELOADERSERVICE_DATA_DESCRIPTOR_FILE
-  - for testing purposes: STORELOADERSERVICE_TEST: {
-                                    bucket_endpoint: 'http://localhost:5000'
-                                    , store_endpoint: 'http://localhost:8000'
-                                }
+### required environment variables
+  - AWS_ACCESS_KEY_ID ( mandatory )
+  - AWS_SECRET_ACCESS_KEY ( mandatory )
+  - region: aws region ( optional, default = eu-west-1 )
+  - DYNDBSTORE_TEST_ENDPOINT ( optional, just for testing purposes )
+  - BUCKETWRAPPER_TEST_ENDPOINT ( optional, just for testing purposes )
+
 ### code snippet example
 
     ...
-    const config = {
-        STORELOADERSERVICE_AWS_REGION: 'eu-west-1'
-            , STORELOADERSERVICE_AWS_ACCESS_KEY_ID: process.env.ACCESS_KEY_ID
-            , STORELOADERSERVICE_AWS_ACCESS_KEY: process.env.ACCESS_KEY
-            , STORELOADERSERVICE_DATA_DESCRIPTOR_FILE: 'data.spec'
-    }
-    const service = require('@jtviegas/store-loader-service')(config);
+    const service = require('@jtviegas/store-loader-service');
     ...
-    service.load(app, entity, environment, bucket, callback);
+    service.load(app, environment, bucket, callback);
     
   Check the test folder in source tree.
   

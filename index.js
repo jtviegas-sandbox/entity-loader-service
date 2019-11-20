@@ -4,12 +4,16 @@ const winston = require('winston');
 const store = require('@jtviegas/dyndbstore');
 const papa = require('papaparse');
 const commons = require('@jtviegas/jscommons').commons;
+const bucketWrapper = require('@jtviegas/bucket-wrapper');
+
 const logger = winston.createLogger(commons.getDefaultWinstonConfig());
 
 const imageListingRegex=/^.*\/\d+_\d+\.(png|jpg)/i;
 const imageRegex=/^.*\/(\d+)_*/;
 
-const storeLoaderService = () => {
+const entityLoaderService = function () {
+
+    logger.info("[entityLoaderService]...initializing entityLoaderService module...");
 
     const CONSTANTS = {
         BUCKET_HOST_URL: 'https://s3.eu-west-1.amazonaws.com'
@@ -18,30 +22,12 @@ const storeLoaderService = () => {
     };
     const CONFIGURATION_SPEC = [ 'region', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY'
         , 'DYNDBSTORE_TEST_ENDPOINT', 'BUCKETWRAPPER_TEST_ENDPOINT' ];
+    let configuration = commons.mergeConfiguration(CONSTANTS, commons.getEnvironmentVarsSubset(CONFIGURATION_SPEC));
 
-    const CONFIGURATION_SPEC = {
-        DYNDBSTORE_AWS_REGION: 'STORELOADERSERVICE_AWS_REGION'
-        , DYNDBSTORE_AWS_ACCESS_KEY_ID: 'STORELOADERSERVICE_AWS_ACCESS_KEY_ID'
-        , DYNDBSTORE_AWS_ACCESS_KEY: 'STORELOADERSERVICE_AWS_ACCESS_KEY'
-        , BUCKETWRAPPER_AWS_REGION: 'STORELOADERSERVICE_AWS_REGION'
-        , BUCKETWRAPPER_AWS_ACCESS_KEY_ID: 'STORELOADERSERVICE_AWS_ACCESS_KEY_ID'
-        , BUCKETWRAPPER_AWS_ACCESS_KEY: 'STORELOADERSERVICE_AWS_ACCESS_KEY'
-        , DATA_DESCRIPTOR_FILE: 'DATA_DESCRIPTOR_FILE'
-
-        // testing environment
-        , DYNDBSTORE_TEST: 'STORELOADERSERVICE_TEST'
-        , BUCKETWRAPPER_TEST: 'STORELOADERSERVICE_TEST'
-    };
-
-
-    logger.info("[storeLoaderService]...initializing storeLoaderService module...");
-    let configuration = commons.mergeConfiguration(commons.getConfiguration(CONFIGURATION_SPEC, config), constants);
-    const bucketWrapper = require('@jtviegas/bucket-wrapper')(configuration);
-    store.init( configuration );
-    logger.info("[storeLoaderService]...initialized the storeLoaderService module successfully !");
+    logger.info("[entityLoaderService]...initialized the entityLoaderService module successfully !");
 
     const toItem = (index, obj, header) => {
-        logger.debug("[storeLoaderService|toItem|in] (%d,%o,%o)", index, obj, header);
+        logger.debug("[entityLoaderService|toItem|in] (%d,%o,%o)", index, obj, header);
         if(!Array.isArray(obj))
             throw Error("entity fields conveyor is not an array");
         if(0 >= Object.keys(header).length)
@@ -58,7 +44,7 @@ const storeLoaderService = () => {
             result[_header.name] = _header.transformer(_value);
         }
         result['images'] = [];
-        logger.debug("[storeLoaderService|toItem|out] => %o", result);
+        logger.debug("[entityLoaderService|toItem|out] => %o", result);
         return result;
     };
 
@@ -80,7 +66,7 @@ const storeLoaderService = () => {
     }
 
     const getHeaderSpec = (arr) => {
-        logger.debug("[storeLoaderService|getHeaderSpec|in] (%o)", arr);
+        logger.debug("[entityLoaderService|getHeaderSpec|in] (%o)", arr);
         let result = [];
         for(let i = 0; i < arr.length; i++){
             let field = arr[i];
@@ -89,17 +75,17 @@ const storeLoaderService = () => {
             let type = components[1].trim();
             result.push( { name: name, transformer: transformer[type] } );
         }
-        logger.debug("[storeLoaderService|getHeaderSpec|out] => %o", result);
+        logger.debug("[entityLoaderService|getHeaderSpec|out] => %o", result);
         return result;
     }
 
     const handleDataDescriptorFile = (bucket, folder) => {
-        logger.debug("[storeLoaderService|handleDataDescriptorFile|in] (%s,%o)", bucket, folder);
+        logger.debug("[entityLoaderService|handleDataDescriptorFile|in] (%s,%o)", bucket, folder);
 
             return new Promise(function(resolve, reject) {
                 try {
                     let objkey = folder + '/' + configuration.DATA_DESCRIPTOR_FILE;
-                    logger.debug("[storeLoaderService|handleDataDescriptorFile] getting object: %s", objkey);
+                    logger.debug("[entityLoaderService|handleDataDescriptorFile] getting object: %s", objkey);
                     bucketWrapper.getObject(bucket, objkey, (e,o) => {
                         if(e)
                             reject(e);
@@ -128,20 +114,20 @@ const storeLoaderService = () => {
 
                 }
                 catch(e){
-                    logger.error("[storeLoaderService|handleDataDescriptorFile.Promise] %o", e);
+                    logger.error("[entityLoaderService|handleDataDescriptorFile.Promise] %o", e);
                     reject(e);
                 }
             });
 
-        logger.debug("[storeLoaderService|handleDataDescriptorFile|out]");
+        logger.debug("[entityLoaderService|handleDataDescriptorFile|out]");
     }
 
     const listImages = (bucket, folder, data) => {
-        logger.debug("[storeLoaderService|listImages|in] (%s, %s, %o)", bucket, folder, data);
+        logger.debug("[entityLoaderService|listImages|in] (%s, %s, %o)", bucket, folder, data);
         return new Promise(function(resolve, reject) {
             try {
                 bucketWrapper.listObjects(bucket, folder , function(e, d) {
-                    logger.debug("[storeLoaderService|listImages|bucketWrapper.listObjects|callback|in] (%o, %o)", e, d);
+                    logger.debug("[entityLoaderService|listImages|bucketWrapper.listObjects|callback|in] (%o, %o)", e, d);
                     if (e)
                         reject(e);
                     else {
@@ -153,22 +139,22 @@ const storeLoaderService = () => {
                                 if( null !== match )
                                     data.etags[obj.ETag] = obj.Key;
                             }
-                            logger.debug("[storeLoaderService|listImages|bucketWrapper.listObjects|callback|out] => %o", data);
+                            logger.debug("[entityLoaderService|listImages|bucketWrapper.listObjects|callback|out] => %o", data);
                             resolve(data);
                         }
                         catch(e){
-                            logger.error("[storeLoaderService|listImages|bucketWrapper.listObjects|callback|catch] e => %o", e);
+                            logger.error("[entityLoaderService|listImages|bucketWrapper.listObjects|callback|catch] e => %o", e);
                             reject(e);
                         }
                     }
                 });
             }
             catch(e){
-                logger.error("[storeLoaderService|listImages.Promise] %o", e);
+                logger.error("[entityLoaderService|listImages.Promise] %o", e);
                 reject(e);
             }
         });
-        logger.debug("[storeLoaderService|listImages|out]");
+        logger.debug("[entityLoaderService|listImages|out]");
     }
 
     const toImage = (bucket, name, v) => {
@@ -283,7 +269,7 @@ const storeLoaderService = () => {
     }
 
     const loadFolderPromise = (app, environment, bucket, entity) => {
-        logger.info("[storeLoaderService|loadFolderPromise|in] (%s,%s,%s,%s)", app, environment, bucket, entity);
+        logger.info("[entityLoaderService|loadFolderPromise|in] (%s,%s,%s,%s)", app, environment, bucket, entity);
         let result = null;
 
         let table = commons.getTableNameV4(app , entity , environment);
@@ -295,17 +281,17 @@ const storeLoaderService = () => {
             .then( d => resetStore(table, d) )
             .then( d => updateStore(table, d));
 
-        logger.info("[storeLoaderService|loadFolderPromise|out] => %o", result);
+        logger.info("[entityLoaderService|loadFolderPromise|out] => %o", result);
         return result;
     }
 
 
     const listEntities = (bucket, callback) => {
-        logger.debug("[storeLoaderService|listEntities|in] (%s)", bucket);
+        logger.debug("[entityLoaderService|listEntities|in] (%s)", bucket);
 
         try {
             bucketWrapper.listObjects(bucket, "" , function(e, d) {
-                logger.debug("[storeLoaderService|listEntities|bucketWrapper.listObjects|callback|in] (%o, %o)", e, d);
+                logger.debug("[entityLoaderService|listEntities|bucketWrapper.listObjects|callback|in] (%o, %o)", e, d);
                 if (e)
                     callback(e);
                 else {
@@ -315,32 +301,32 @@ const storeLoaderService = () => {
                         for(let i=0; i < d.length; i++){
                             let key = d[i].Key;
                             let entity = key.split("/")[0];
-                            if( -1 === data.indexOf(entity) && -1 === constants.BUCKET_CONTENT_EXCEPTIONS.indexOf(entity) )
+                            if( -1 === data.indexOf(entity) && -1 === CONSTANTS.BUCKET_CONTENT_EXCEPTIONS.indexOf(entity) )
                                 data.push(entity);
                         }
 
-                        logger.debug("[storeLoaderService|listEntities|listObjects|callback|out] => %o", data);
+                        logger.debug("[entityLoaderService|listEntities|listObjects|callback|out] => %o", data);
                         callback(null,data);
                     }
                     catch(e){
-                        logger.error("[storeLoaderService|listEntities|listObjects|callback|catch] e => %o", e);
+                        logger.error("[entityLoaderService|listEntities|listObjects|callback|catch] e => %o", e);
                         callback(e);
                     }
                 }
             });
         }
         catch(e){
-            logger.error("[storeLoaderService|listEntities.Promise] %o", e);
+            logger.error("[entityLoaderService|listEntities.Promise] %o", e);
             callback(e);
         }
 
-        logger.debug("[storeLoaderService|listEntities|out]");
+        logger.debug("[entityLoaderService|listEntities|out]");
     }
 
 
 
     const load = (app, environment, bucket, callback) => {
-        logger.info("[storeLoaderService|load|in] (%s,%s)", environment, bucket);
+        logger.info("[entityLoaderService|load|in] (%s,%s)", environment, bucket);
         try{
             // so for every first level folder/key in teh bucket we will interpret it as an entity
             // and inside it
@@ -362,7 +348,7 @@ const storeLoaderService = () => {
                         promise.then(() => callback(null)).catch(e => callback(e));
                     }
                     catch(e){
-                        logger.error("[storeLoaderService|load|listEntities|callback] %o", e);
+                        logger.error("[entityLoaderService|load|listEntities|callback] %o", e);
                         callback(e);
                     }
                 }
@@ -370,16 +356,13 @@ const storeLoaderService = () => {
 
         }
         catch(e){
-            logger.error("[storeLoaderService|load] %o", e);
+            logger.error("[entityLoaderService|load] %o", e);
             callback(e);
         }
-        logger.info("[storeLoaderService|load|out]");
+        logger.info("[entityLoaderService|load|out]");
     }
 
-
-
-
     return { load: load }
-}
+}();
 
-module.exports = storeLoaderService;
+module.exports = entityLoaderService;

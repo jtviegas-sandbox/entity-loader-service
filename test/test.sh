@@ -15,12 +15,11 @@ CONTAINER=localaws
 APP="app"
 ENVIRONMENT="development"
 BUCKET="$APP-$ENVIRONMENT-entities"
-FOLDER="$this_folder/test/resources"
+FOLDER="$this_folder/resources"
 FILE_EXCLUDE="**/trigger"
 AWS_S3_URL="http://localhost:5000"
 AWS_DB_URL="http://localhost:8000"
 ENTITIES="entity1 entity2"
-
 
 RESOURCES_FOLDER="/tmp/resources"
 
@@ -28,6 +27,9 @@ echo "starting store loader service tests..."
 
 _pwd=`pwd`
 cd $this_folder
+
+export DYNDBSTORE_TEST_ENDPOINT=$AWS_DB_URL
+export BUCKETWRAPPER_TEST_ENDPOINT=$AWS_S3_URL
 
 curl -XGET https://raw.githubusercontent.com/jtviegas/script-utils/master/bash/aws.sh -o "${this_folder}"/aws.sh
 . "${this_folder}"/aws.sh
@@ -38,7 +40,6 @@ echo "...starting aws mock container..."
 docker run --name $CONTAINER -d -e SERVICES="s3:5000,dynamodb:8000" -e DEFAULT_REGION=$AWS_REGION -p 5000:5000 -p 8000:8000 localstack/localstack
 
 for e in ${ENTITIES}; do
-
   resources_folder="$RESOURCES_FOLDER/$e"
   mkdir -p $resources_folder
   cp -r $FOLDER/* $resources_folder/
@@ -66,7 +67,7 @@ rm -rf ${RESOURCES_FOLDER}/*
 debug "...cleaned content in folder $RESOURCES_FOLDER..."
 
 if [ "$__r" -eq "0" ] ; then
-  node_modules/istanbul/lib/cli.js cover node_modules/mocha/bin/_mocha -- -R spec test/test.js
+  "$parent_folder"/node_modules/istanbul/lib/cli.js cover "$parent_folder"/node_modules/mocha/bin/_mocha -- -R spec "$parent_folder"/test/test.js
   __r=$?
 fi
 
