@@ -9,15 +9,15 @@ const logger = winston.createLogger(commons.getDefaultWinstonConfig());
 const imageListingRegex=/^.*\/\d+_\d+\.(png|jpg)/i;
 const imageRegex=/^.*\/(\d+)_*/;
 
-const storeLoaderService = (config) => {
+const storeLoaderService = () => {
 
-    if (!config)
-        throw new Error('!!! must provide config to initialize module !!!');
-
-    const constants = {
-        STORELOADERSERVICE_BUCKET_HOST_URL: 'https://s3.eu-west-1.amazonaws.com'
-        , BUCKET_CONTENT_EXCEPTIONS: ["trigger"]
+    const CONSTANTS = {
+        BUCKET_HOST_URL: 'https://s3.eu-west-1.amazonaws.com'
+        , BUCKET_CONTENT_EXCEPTIONS: ["trigger"], region: 'eu-west-1'
+        , DATA_DESCRIPTOR_FILE: 'data.spec'
     };
+    const CONFIGURATION_SPEC = [ 'region', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY'
+        , 'DYNDBSTORE_TEST_ENDPOINT', 'BUCKETWRAPPER_TEST_ENDPOINT' ];
 
     const CONFIGURATION_SPEC = {
         DYNDBSTORE_AWS_REGION: 'STORELOADERSERVICE_AWS_REGION'
@@ -26,7 +26,7 @@ const storeLoaderService = (config) => {
         , BUCKETWRAPPER_AWS_REGION: 'STORELOADERSERVICE_AWS_REGION'
         , BUCKETWRAPPER_AWS_ACCESS_KEY_ID: 'STORELOADERSERVICE_AWS_ACCESS_KEY_ID'
         , BUCKETWRAPPER_AWS_ACCESS_KEY: 'STORELOADERSERVICE_AWS_ACCESS_KEY'
-        , STORELOADERSERVICE_DATA_DESCRIPTOR_FILE: 'STORELOADERSERVICE_DATA_DESCRIPTOR_FILE'
+        , DATA_DESCRIPTOR_FILE: 'DATA_DESCRIPTOR_FILE'
 
         // testing environment
         , DYNDBSTORE_TEST: 'STORELOADERSERVICE_TEST'
@@ -98,7 +98,7 @@ const storeLoaderService = (config) => {
 
             return new Promise(function(resolve, reject) {
                 try {
-                    let objkey = folder + '/' + configuration.STORELOADERSERVICE_DATA_DESCRIPTOR_FILE;
+                    let objkey = folder + '/' + configuration.DATA_DESCRIPTOR_FILE;
                     logger.debug("[storeLoaderService|handleDataDescriptorFile] getting object: %s", objkey);
                     bucketWrapper.getObject(bucket, objkey, (e,o) => {
                         if(e)
@@ -175,7 +175,7 @@ const storeLoaderService = (config) => {
         let image = {};
         image['name'] = name.split("/")[2];
         image['type'] = v['ContentType'];
-        image['href'] = configuration.STORELOADERSERVICE_BUCKET_HOST_URL + '/' + bucket + '/' + name;
+        image['href'] = configuration.BUCKET_HOST_URL + '/' + bucket + '/' + name;
         return image;
     };
 
@@ -282,6 +282,24 @@ const storeLoaderService = (config) => {
         logger.debug("[resetStore|out]");
     }
 
+    const loadFolderPromise = (app, environment, bucket, entity) => {
+        logger.info("[storeLoaderService|loadFolderPromise|in] (%s,%s,%s,%s)", app, environment, bucket, entity);
+        let result = null;
+
+        let table = commons.getTableNameV4(app , entity , environment);
+        let folder = entity;
+
+        result = handleDataDescriptorFile(bucket, folder)
+            .then( d => listImages(bucket, folder, d) )
+            .then( d => retrieveImages(bucket, d) )
+            .then( d => resetStore(table, d) )
+            .then( d => updateStore(table, d));
+
+        logger.info("[storeLoaderService|loadFolderPromise|out] => %o", result);
+        return result;
+    }
+
+
     const listEntities = (bucket, callback) => {
         logger.debug("[storeLoaderService|listEntities|in] (%s)", bucket);
 
@@ -318,6 +336,8 @@ const storeLoaderService = (config) => {
 
         logger.debug("[storeLoaderService|listEntities|out]");
     }
+
+
 
     const load = (app, environment, bucket, callback) => {
         logger.info("[storeLoaderService|load|in] (%s,%s)", environment, bucket);
@@ -356,24 +376,7 @@ const storeLoaderService = (config) => {
         logger.info("[storeLoaderService|load|out]");
     }
 
-    const loadFolderPromise = (app, environment, bucket, entity) => {
-        logger.info("[storeLoaderService|loadFolderPromise|in] (%s,%s,%s,%s)", app, environment, bucket, entity);
-        let result = null;
 
-        let table = commons.getTableNameV4(app , entity , environment);
-        let folder = entity;
-
-        result = handleDataDescriptorFile(bucket, folder)
-            .then( d => listImages(bucket, folder, d) )
-            .then( d => retrieveImages(bucket, d) )
-            .then( d => resetStore(table, d) )
-            .then( d => updateStore(table, d));
-          /*  .then(() => callback(null))
-            .catch(e => callback(e));*/
-
-        logger.info("[storeLoaderService|loadFolderPromise|out] => %o", result);
-        return result;
-    }
 
 
     return { load: load }
